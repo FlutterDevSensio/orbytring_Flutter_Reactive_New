@@ -197,20 +197,53 @@ class _PlotScreenPPGState extends State<PlotScreenPPG> {
     }
   }
 
+  // void _updateYAxisRange(double newValue) {
+  //   setState(() {
+  //     _yAxisMin = greenChannelData.isEmpty
+  //         ? 0
+  //         : greenChannelData.map((data) => data.value).reduce(math.min);
+  //     _yAxisMax = greenChannelData.isEmpty
+  //         ? 1
+  //         : greenChannelData.map((data) => data.value).reduce(math.max);
+  //   });
+  // }
   void _updateYAxisRange(double newValue) {
     setState(() {
-      _yAxisMin = greenChannelData.isEmpty
-          ? 0
-          : greenChannelData.map((data) => data.value).reduce(math.min);
-      _yAxisMax = greenChannelData.isEmpty
-          ? 1
-          : greenChannelData.map((data) => data.value).reduce(math.max);
+      // Ensure the greenChannelData contains doubles
+      // final List<double> last1500Data = greenChannelData
+      //     .map((data) => data.value as double)
+      //     .toList()
+      //     .take(1500)
+      //     .toList();
+      final List<double> last1500Data = greenChannelData
+          .map((data) => data.value as double)
+          .toList()
+          .skip(
+          greenChannelData.length > 500 ? greenChannelData.length - 500 : 0)
+          .toList();
+
+      // Add the new value to the dataset
+      last1500Data.add(newValue);
+      print("Printing last 1500 data");
+      print(last1500Data);
+
+      // Calculate min and max for the Y-axis
+      _yAxisMin = last1500Data.isEmpty ? 0 : last1500Data.reduce(math.min);
+      print(_yAxisMin);
+      _yAxisMax = last1500Data.isEmpty ? 1 : last1500Data.reduce(math.max);
+      print(_yAxisMax);
     });
   }
 
   void _zoomOut() {
     setState(() {
       _zoomPanBehavior.reset();
+      _yAxisMin = greenChannelData.isEmpty
+          ? 0
+          : greenChannelData.map((data) => data.value).reduce(math.min);
+      _yAxisMax = greenChannelData.isEmpty
+          ? 1
+          : greenChannelData.map((data) => data.value).reduce(math.max);
     });
   }
 
@@ -267,13 +300,13 @@ class _PlotScreenPPGState extends State<PlotScreenPPG> {
                     IconButton(
                       icon: Icon(
                         (_notificationStates[characteristic.characteristicId] ??
-                                false)
+                            false)
                             ? Icons.notifications
                             : Icons.notifications_off,
                       ),
                       onPressed: () async {
                         if (_notificationStates[
-                                characteristic.characteristicId] ==
+                        characteristic.characteristicId] ==
                             true) {
                           print("we are gere");
                           await _disableNotifications(qualifiedCharacteristic);
@@ -310,7 +343,7 @@ class _PlotScreenPPGState extends State<PlotScreenPPG> {
                 });
               },
               items: [100, 200, 300, 400, 500].map<DropdownMenuItem<int>>(
-                (int value) {
+                    (int value) {
                   return DropdownMenuItem<int>(
                     value: value,
                     child: Text(value.toString()),
@@ -365,27 +398,53 @@ class _PlotScreenPPGState extends State<PlotScreenPPG> {
         children: [
           Expanded(
             flex: 6,
-            child: Center(
-              child: SfCartesianChart(
-                zoomPanBehavior: _zoomPanBehavior,
-                primaryXAxis: NumericAxis(
-                  title: AxisTitle(text: 'Time (Index)'),
-                  autoScrollingDelta: 1500,
-                  autoScrollingMode: AutoScrollingMode.end,
-                ),
-                primaryYAxis: NumericAxis(
-                  minimum: _yAxisMin,
-                  maximum: _yAxisMax,
-                ),
-                series: <ChartSeries>[
-                  LineSeries<PlotData, int>(
-                    name: 'Green Channel',
-                    dataSource: greenChannelData,
-                    xValueMapper: (PlotData data, _) => data.time,
-                    yValueMapper: (PlotData data, _) => data.value,
+            child: Column(
+              children: [
+                Center(
+                  child:
+                  SfCartesianChart(
+                    zoomPanBehavior: _zoomPanBehavior,
+                    primaryXAxis: NumericAxis(
+                      title: AxisTitle(text: 'Time (Index)'),
+                      autoScrollingDelta: 1500,
+                      autoScrollingMode: AutoScrollingMode.end,
+                    ),
+                    primaryYAxis: NumericAxis(
+                      minimum: _yAxisMin,
+                      maximum: _yAxisMax,
+                    ),
+                    // series: <ChartSeries>[
+                    //   LineSeries<PlotData, int>(
+                    //     name: 'Green Channel',
+                    //     dataSource: greenChannelData,
+                    //     xValueMapper: (PlotData data, _) => data.time,
+                    //     yValueMapper: (PlotData data, _) => data.value,
+                    //   ),
+                    // ],
+                    series: <CartesianSeries>[
+                      FastLineSeries<PlotData, int>(
+                          name: 'Green Channel',
+                          dataSource: greenChannelData,
+                          xValueMapper: (PlotData data, _) => data.time,
+                          yValueMapper: (PlotData data, _) => data.value,
+                          animationDuration: 0,
+                          emptyPointSettings: EmptyPointSettings(
+                            mode: EmptyPointMode.average,)
+                      ),
+                      // FastLineSeries<PlotData, int>(
+                      //     name: 'Green Channel',
+                      //     dataSource: greenChannelData,
+                      //     xValueMapper: (PlotData data, _) => data.time,
+                      //     yValueMapper: (PlotData data, _) => data.value,
+                      //     animationDuration: 0,
+                      //     emptyPointSettings: EmptyPointSettings(
+                      //       mode: EmptyPointMode.average,)
+                      // ),
+
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           Expanded(

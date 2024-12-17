@@ -17,8 +17,7 @@ class PlotScreenECG extends StatefulWidget {
   final DiscoveredDevice device; // Bluetooth device parameter
   final List<DiscoveredService> services; // Services for the Bluetooth device
 
-  PlotScreenECG({Key? key, required this.device, required this.services})
-      : super(key: key);
+  PlotScreenECG({Key? key, required this.device, required this.services}) : super(key: key);
 
   @override
   _PlotScreenECGState createState() => _PlotScreenECGState();
@@ -53,8 +52,7 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
   Future<void> _connectToDevice() async {
     try {
       _ble.connectToDevice(id: widget.device.id).listen((connectionState) {
-        if (connectionState.connectionState ==
-            DeviceConnectionState.connected) {
+        if (connectionState.connectionState == DeviceConnectionState.connected) {
           _discoverServices();
         }
       }, onError: (e) {
@@ -88,8 +86,7 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
     }
   }
 
-  Future<void> _enableNotifications(
-      QualifiedCharacteristic characteristic) async {
+  Future<void> _enableNotifications(QualifiedCharacteristic characteristic) async {
     try {
       _notificationCharacteristic = characteristic;
       _ble.subscribeToCharacteristic(characteristic).listen((value) {
@@ -126,9 +123,21 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
 
   void _updateYAxisRange(double newValue) {
     setState(() {
+
+      final List<double> last1500Data = channelData
+          .map((data) => data.value as double)
+          .toList()
+          .skip(
+          channelData.length > 500 ? channelData.length - 500 : 0)
+          .toList();
+
       if (channelData.isNotEmpty) {
-        _yAxisMin = channelData.map((data) => data.value).reduce(math.min);
-        _yAxisMax = channelData.map((data) => data.value).reduce(math.max);
+        _yAxisMin = last1500Data.isEmpty ? 0 : last1500Data.reduce(math.min);
+        print(_yAxisMin);
+        _yAxisMax = last1500Data.isEmpty ? 1 : last1500Data.reduce(math.max);
+        print(_yAxisMax);
+        // _yAxisMin = channelData.map((data) => data.value).reduce(math.min);
+        // _yAxisMax = channelData.map((data) => data.value).reduce(math.max);
       } else {
         _yAxisMin = 0;
         _yAxisMax = 1000; // Default range
@@ -138,8 +147,7 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
 
   List<Widget> _buildServiceTiles() {
     return widget.services.map((service) {
-      if (service.serviceId.toString().toUpperCase() ==
-          '4E771A15-2665-CF92-8569-8C642A4AB357') {
+      if (service.serviceId.toString().toUpperCase() == '4E771A15-2665-CF92-8569-8C642A4AB357') {
         return Column(
           children: service.characteristics.map((characteristic) {
             final qualifiedCharacteristic = QualifiedCharacteristic(
@@ -147,6 +155,7 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
               serviceId: service.serviceId,
               characteristicId: characteristic.characteristicId,
             );
+
 
             // ExpansionTile(
             // title: Text('Service: ${service.serviceId.toString().toUpperCase()}'),
@@ -156,44 +165,40 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
             //     serviceId: service.serviceId,
             //     characteristicId: characteristic.characteristicId,
             //   );
-            if (characteristic.characteristicId.toString().toUpperCase() ==
-                '48837CB0-B733-7C24-31B7-222222222222') {
+            if (characteristic.characteristicId.toString().toUpperCase() == '48837CB0-B733-7C24-31B7-222222222222') {
               return
-                  // ListTile(
-                  // title: Text('Characteristic: ${characteristic.characteristicId.toString().toUpperCase()}'),
-                  // trailing:
-                  //
-                  Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (characteristic.isWritableWithResponse)
-                    IconButton(
-                      icon: Icon(Icons.send),
-                      onPressed: () async {
-                        _showCommandDialog(qualifiedCharacteristic);
-                      },
-                    ),
-                  if (characteristic.isNotifiable)
-                    IconButton(
-                      icon: Icon(
-                        (_notificationStates[characteristic.characteristicId] ??
-                                false)
-                            ? Icons.notifications
-                            : Icons.notifications_off,
+                // ListTile(
+                // title: Text('Characteristic: ${characteristic.characteristicId.toString().toUpperCase()}'),
+                // trailing:
+                //
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (characteristic.isWritableWithResponse)
+                      IconButton(
+                        icon: Icon(Icons.send),
+                        onPressed: () async {
+                          _showCommandDialog(qualifiedCharacteristic);
+                        },
                       ),
-                      onPressed: () async {
-                        if (_notificationStates[
-                                characteristic.characteristicId] ==
-                            true) {
-                          await _disableNotifications(qualifiedCharacteristic);
-                        } else {
-                          await _enableNotifications(qualifiedCharacteristic);
-                        }
-                      },
-                    ),
-                ],
-                // ),
-              );
+                    if (characteristic.isNotifiable)
+                      IconButton(
+                        icon: Icon(
+                          (_notificationStates[characteristic.characteristicId] ?? false)
+                              ? Icons.notifications
+                              : Icons.notifications_off,
+                        ),
+                        onPressed: () async {
+                          if (_notificationStates[characteristic.characteristicId] == true) {
+                            await _disableNotifications(qualifiedCharacteristic);
+                          } else {
+                            await _enableNotifications(qualifiedCharacteristic);
+                          }
+                        },
+                      ),
+                  ],
+                  // ),
+                );
             }
             return Container();
           }).toList(),
@@ -203,11 +208,9 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
     }).toList();
   }
 
-  Future<void> _disableNotifications(
-      QualifiedCharacteristic characteristic) async {
+  Future<void> _disableNotifications(QualifiedCharacteristic characteristic) async {
     try {
-      await _ble
-          .writeCharacteristicWithoutResponse(characteristic, value: [0x00]);
+      await _ble.writeCharacteristicWithoutResponse(characteristic, value: [0x00]);
       setState(() {
         print("We are setting it off");
         _notificationStates[characteristic.characteristicId] = false;
@@ -217,6 +220,7 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
       print('Error disabling notifications: $e');
     }
   }
+
 
   void _showCommandDialog(QualifiedCharacteristic characteristic) {
     showDialog(
@@ -234,8 +238,7 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
                   _commandController.text = 'STARTECG:$selectedValue';
                 });
               },
-              items: [60, 100, 200, 500, 1000]
-                  .map<DropdownMenuItem<int>>((int value) {
+              items: [60, 100, 200, 500, 1000].map<DropdownMenuItem<int>>((int value) {
                 return DropdownMenuItem<int>(
                   value: value,
                   child: Text(value.toString()),
@@ -272,8 +275,7 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
     );
   }
 
-  Future<void> _sendCommand(
-      QualifiedCharacteristic characteristic, String command) async {
+  Future<void> _sendCommand(QualifiedCharacteristic characteristic, String command) async {
     final bytes = command.codeUnits;
     try {
       await _ble.writeCharacteristicWithResponse(characteristic, value: bytes);
@@ -310,19 +312,29 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
               zoomPanBehavior: _zoomPanBehavior,
               primaryXAxis: NumericAxis(
                 title: AxisTitle(text: 'Time (Index)'),
-                autoScrollingDelta: selectedValue * 500,
+                // autoScrollingDelta: selectedValue * 500,
+                autoScrollingDelta: 1500,
                 autoScrollingMode: AutoScrollingMode.end,
               ),
               primaryYAxis: NumericAxis(
                 minimum: _yAxisMin,
                 maximum: _yAxisMax,
               ),
-              series: <ChartSeries>[
-                LineSeries<PlotData, int>(
+              // series: <ChartSeries>[
+              //   LineSeries<PlotData, int>(
+              //     name: 'ECG Channel',
+              //     dataSource: channelData,
+              //     xValueMapper: (PlotData data, _) => data.time,
+              //     yValueMapper: (PlotData data, _) => data.value,
+              //   ),
+              // ],
+              series: <CartesianSeries>[
+                FastLineSeries<PlotData, int>(
                   name: 'ECG Channel',
                   dataSource: channelData,
                   xValueMapper: (PlotData data, _) => data.time,
                   yValueMapper: (PlotData data, _) => data.value,
+                  animationDuration: 0,
                 ),
               ],
             ),
