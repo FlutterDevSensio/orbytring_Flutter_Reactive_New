@@ -108,18 +108,38 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
     int sampleCount = value.length ~/ 2;
     for (int i = 0; i < sampleCount; i++) {
       int offset = i * 2;
-
       int sample1 = value[offset];
       int sample2 = value[offset + 1];
-
       int ecgData = (sample1 << 8) | sample2;
-
       channelData.add(PlotData(dataPointIndex++, ecgData.toDouble()));
-
       _updateYAxisRange(ecgData.toDouble());
       _dataPointsPerSecond++;
     }
   }
+
+  // void _updateYAxisRange(double newValue) {
+  //   setState(() {
+  //
+  //     final List<double> last1500Data = channelData
+  //         .map((data) => data.value as double)
+  //         .toList()
+  //         .skip(
+  //         channelData.length > 500 ? channelData.length - 500 : 0)
+  //         .toList();
+  //
+  //     if (channelData.isNotEmpty) {
+  //       _yAxisMin = last1500Data.isEmpty ? 0 : last1500Data.reduce(math.min);
+  //       print(_yAxisMin);
+  //       _yAxisMax = last1500Data.isEmpty ? 1 : last1500Data.reduce(math.max);
+  //       print(_yAxisMax);
+  //       // _yAxisMin = channelData.map((data) => data.value).reduce(math.min);
+  //       // _yAxisMax = channelData.map((data) => data.value).reduce(math.max);
+  //     } else {
+  //       _yAxisMin = 0;
+  //       _yAxisMax = 1000; // Default range
+  //     }
+  //   });
+  // }
 
   void _updateYAxisRange(double newValue) {
     setState(() {
@@ -132,11 +152,19 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
           .toList();
 
       if (channelData.isNotEmpty) {
-        _yAxisMin = last1500Data.isEmpty ? 0 : last1500Data.reduce(math.min);
-        print(_yAxisMin);
-        _yAxisMax = last1500Data.isEmpty ? 1 : last1500Data.reduce(math.max);
-        print(_yAxisMax);
+
         // _yAxisMin = channelData.map((data) => data.value).reduce(math.min);
+        // _yAxisMin = last1500Data.isEmpty ? 0 : (last1500Data.reduce(math.min));
+        // print(_yAxisMin);
+        _yAxisMin = last1500Data.isEmpty
+            ? 0
+            : (last1500Data.reduce(math.min) > 3000
+            ? last1500Data.reduce(math.min) - 3000
+            : 0);
+        _yAxisMax = last1500Data.isEmpty ? 1 : (last1500Data.reduce(math.max)+3000);
+
+        // _yAxisMax = last1500Data.isEmpty ? 1 : (last1500Data.reduce(math.max)+last1500Data.reduce(math.max)/3);
+        // print(_yAxisMax);
         // _yAxisMax = channelData.map((data) => data.value).reduce(math.max);
       } else {
         _yAxisMin = 0;
@@ -210,7 +238,8 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
 
   Future<void> _disableNotifications(QualifiedCharacteristic characteristic) async {
     try {
-      await _ble.writeCharacteristicWithoutResponse(characteristic, value: [0x00]);
+      // await _ble.writeCharacteristicWithoutResponse(characteristic, value: [0x00]);
+      _sendCommand(characteristic, "STOPECG");
       setState(() {
         print("We are setting it off");
         _notificationStates[characteristic.characteristicId] = false;
@@ -314,6 +343,7 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
                 title: AxisTitle(text: 'Time (Index)'),
                 // autoScrollingDelta: selectedValue * 500,
                 autoScrollingDelta: 1500,
+                // autoScrollingDelta: channelData.length,
                 autoScrollingMode: AutoScrollingMode.end,
               ),
               primaryYAxis: NumericAxis(
@@ -336,6 +366,7 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
                   yValueMapper: (PlotData data, _) => data.value,
                   animationDuration: 0,
                 ),
+
               ],
             ),
           ),
