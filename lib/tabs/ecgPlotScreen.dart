@@ -371,6 +371,7 @@ class _PlotScreenECGState extends State<PlotScreenECG> {
             ),
           ),
           Expanded(
+            
             flex: 1,
             child: ListView(
               children: _buildServiceTiles(),
